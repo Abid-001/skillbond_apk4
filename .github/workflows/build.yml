@@ -1,0 +1,55 @@
+name: Build SkillBond APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Use official Kivy/Buildozer Docker image ────────────────────────────
+      # This image has ALL dependencies pre-installed (SDK, NDK, Java, etc.)
+      # No apt-get, no manual setup — guaranteed to work
+      - name: Build APK with Kivy Docker image
+        run: |
+          docker run --rm \
+            --volume "${{ github.workspace }}:/home/user/hostcwd" \
+            --workdir /home/user/hostcwd \
+            kivy/buildozer:latest \
+            android debug 2>&1 | tee build.log
+          echo "Build exit code: ${PIPESTATUS[0]}"
+
+      - name: Find APK
+        if: always()
+        run: |
+          echo "=== Searching for APK ==="
+          find . -name "*.apk" 2>/dev/null && echo "Found!" || echo "No APK found"
+          echo "=== bin/ contents ==="
+          ls -lh bin/ 2>/dev/null || echo "bin/ not found"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: SkillBond-debug-APK
+          path: bin/*.apk
+          retention-days: 30
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
+
+      - name: Show last 80 lines of log on failure
+        if: failure()
+        run: tail -80 build.log || echo "No build log found"
