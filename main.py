@@ -3,17 +3,15 @@ SkillBond - Android APK
 Built with Kivy 2.3.0 + KivyMD 2.0.1 + Python 3.10.11
 Dark modern theme | Multi-user | Local SQLite | Live autocomplete
 
-KivyMD 2.0.1 breaking changes handled:
-  - MDRaisedButton / MDFlatButton  → MDButton (style="filled" / "text" / "tonal")
-  - MDIconButton                   → MDIconButton (theme_icon_color instead of theme_text_color)
-  - MDDialog                       → component-based (MDDialogHeadlineText, MDDialogSupportingText, MDDialogButtonContainer)
-  - MDSnackbar                     → MDSnackbar(MDSnackbarText(...), y=dp(24), ...)
-  - MDTextField                    → text_color_normal + text_color_focus (both required)
-  - MDButton text                  → must use MDButtonText child widget
+Fixes in this version:
+  - REMOVED icon_left from ALL MDTextFields (was causing crash on Android)
+  - Quick skill chips now wrap into rows properly (no overlap/cutoff)
+  - Auto-login: session saved by user_id so user stays logged in
+  - Call button on friend cards opens phone dialer with number pre-filled
 """
 
 import os
-import sys
+import json
 
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
@@ -21,6 +19,7 @@ from kivy.metrics import dp
 from kivy.clock import Clock
 from kivy.utils import get_color_from_hex
 from kivy.graphics import Color, RoundedRectangle
+from kivy.core.window import Window
 
 from kivymd.app import MDApp
 from kivymd.uix.menu import MDDropdownMenu
@@ -33,7 +32,6 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.widget import MDWidget
 
-# KivyMD 2.0.1 dialog sub-components — try/except for build compatibility
 try:
     from kivymd.uix.dialog import (
         MDDialogHeadlineText,
@@ -46,7 +44,7 @@ except ImportError:
 
 from db import Database
 
-# ── Palette constants ─────────────────────────────────────────────────────────
+# ── Palette ───────────────────────────────────────────────────────────────────
 C_BG       = "#080b12"
 C_CARD     = "#0e1220"
 C_ELEVATED = "#151c2c"
@@ -55,7 +53,6 @@ C_ACCENT2  = "#7c3aed"
 C_TEXT     = "#f0f4ff"
 C_SECOND   = "#8892a4"
 C_MUTED    = "#4a5568"
-C_HINT     = "#8892a4"  # visible hint text color for Android
 C_DANGER   = "#ef4444"
 C_BORDER   = "#1a2035"
 
@@ -70,7 +67,7 @@ QUICK_SKILLS = [
     "Accounting", "Teaching", "Medical", "Plumbing",
 ]
 
-# ── KV string ─────────────────────────────────────────────────────────────────
+# ── KV ────────────────────────────────────────────────────────────────────────
 KV = """
 #:import dp kivy.metrics.dp
 #:import hex kivy.utils.get_color_from_hex
@@ -103,7 +100,7 @@ KV = """
             padding: dp(28)
             spacing: dp(10)
             size_hint: 1, None
-            height: dp(190)
+            height: dp(180)
             md_bg_color: hex("#0e1220")
             line_color: hex("#1a2035")
             radius: [dp(20)]
@@ -126,7 +123,7 @@ KV = """
                 font_size: '24sp'
                 bold: True
                 size_hint_y: None
-                height: dp(38)
+                height: dp(36)
 
             MDLabel:
                 text: 'Find the Right Friend, Fast'
@@ -135,7 +132,7 @@ KV = """
                 text_color: hex("#8892a4")
                 font_size: '12sp'
                 size_hint_y: None
-                height: dp(22)
+                height: dp(20)
 
         MDWidget:
             size_hint_y: None
@@ -143,10 +140,10 @@ KV = """
 
         MDCard:
             orientation: 'vertical'
-            padding: dp(24)
-            spacing: dp(10)
+            padding: [dp(24), dp(20)]
+            spacing: dp(8)
             size_hint: 1, None
-            height: dp(270)
+            height: dp(290)
             md_bg_color: hex("#0e1220")
             line_color: hex("#1a2035")
             radius: [dp(20)]
@@ -171,9 +168,8 @@ KV = """
                 hint_text_color_focus: hex("#8892a4")
                 line_color_normal: hex("#2a3a55")
                 line_color_focus: hex("#00d4ff")
-                icon_left: "account"
                 size_hint_y: None
-                height: dp(54)
+                height: dp(52)
 
             MDLabel:
                 text: "Password"
@@ -195,9 +191,8 @@ KV = """
                 hint_text_color_focus: hex("#8892a4")
                 line_color_normal: hex("#2a3a55")
                 line_color_focus: hex("#00d4ff")
-                icon_left: "lock"
                 size_hint_y: None
-                height: dp(54)
+                height: dp(52)
 
             MDButton:
                 style: "filled"
@@ -236,7 +231,7 @@ KV = """
             orientation: 'vertical'
             md_bg_color: hex("#080b12")
             padding: [dp(28), dp(20)]
-            spacing: dp(16)
+            spacing: dp(14)
             adaptive_height: True
 
             MDBoxLayout:
@@ -261,10 +256,10 @@ KV = """
 
             MDCard:
                 orientation: 'vertical'
-                padding: dp(24)
+                padding: [dp(24), dp(20)]
                 spacing: dp(8)
                 size_hint: 1, None
-                height: dp(440)
+                height: dp(420)
                 md_bg_color: hex("#0e1220")
                 line_color: hex("#1a2035")
                 radius: [dp(20)]
@@ -289,9 +284,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#7c3aed")
-                    icon_left: "account"
                     size_hint_y: None
-                    height: dp(54)
+                    height: dp(52)
 
                 MDLabel:
                     text: "Password (min 6 characters)"
@@ -313,9 +307,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#7c3aed")
-                    icon_left: "lock"
                     size_hint_y: None
-                    height: dp(54)
+                    height: dp(52)
 
                 MDLabel:
                     text: "Confirm Password"
@@ -337,9 +330,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#7c3aed")
-                    icon_left: "shield-check"
                     size_hint_y: None
-                    height: dp(54)
+                    height: dp(52)
 
                 MDButton:
                     style: "filled"
@@ -371,7 +363,6 @@ KV = """
         orientation: 'vertical'
         md_bg_color: hex("#080b12")
 
-        # Top bar
         MDBoxLayout:
             orientation: 'horizontal'
             size_hint_y: None
@@ -417,7 +408,7 @@ KV = """
                 spacing: dp(12)
                 adaptive_height: True
 
-                # Stats row ───────────────────────────────────────────────────
+                # Stats row
                 MDBoxLayout:
                     orientation: 'horizontal'
                     size_hint_y: None
@@ -505,13 +496,13 @@ KV = """
                             size_hint_y: None
                             height: dp(20)
 
-                # Search card ─────────────────────────────────────────────────
+                # Search card
                 MDCard:
                     orientation: 'vertical'
                     padding: [dp(14), dp(12)]
                     spacing: dp(6)
                     size_hint_y: None
-                    height: dp(288)
+                    height: dp(292)
                     md_bg_color: hex("#0e1220")
                     line_color: hex("#1a2035")
                     radius: [dp(16)]
@@ -545,7 +536,6 @@ KV = """
                         hint_text_color_focus: hex("#8892a4")
                         line_color_normal: hex("#2a3a55")
                         line_color_focus: hex("#00d4ff")
-                        icon_left: "magnify"
                         size_hint_y: None
                         height: dp(50)
 
@@ -568,7 +558,6 @@ KV = """
                         hint_text_color_focus: hex("#8892a4")
                         line_color_normal: hex("#2a3a55")
                         line_color_focus: hex("#00d4ff")
-                        icon_left: "tag"
                         size_hint_y: None
                         height: dp(50)
 
@@ -591,11 +580,10 @@ KV = """
                         hint_text_color_focus: hex("#8892a4")
                         line_color_normal: hex("#2a3a55")
                         line_color_focus: hex("#00d4ff")
-                        icon_left: "map-marker"
                         size_hint_y: None
                         height: dp(50)
 
-                # Results header ──────────────────────────────────────────────
+                # Results header
                 MDBoxLayout:
                     orientation: 'horizontal'
                     size_hint_y: None
@@ -625,7 +613,6 @@ KV = """
                             text_color: 0, 0, 0, 1
                             bold: True
 
-                # Friend cards container ───────────────────────────────────────
                 MDBoxLayout:
                     id: friends_list
                     orientation: 'vertical'
@@ -665,9 +652,10 @@ KV = """
                     bold: True
                     valign: 'center'
 
+            # Form card — adaptive height, no overflow
             MDCard:
                 orientation: 'vertical'
-                padding: dp(20)
+                padding: [dp(20), dp(16)]
                 spacing: dp(6)
                 size_hint_y: None
                 height: self.minimum_height
@@ -695,9 +683,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
-                    icon_left: "account"
                     size_hint_y: None
-                    height: dp(54)
+                    height: dp(52)
 
                 MDLabel:
                     text: "Phone Number"
@@ -719,9 +706,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
-                    icon_left: "phone"
                     size_hint_y: None
-                    height: dp(54)
+                    height: dp(52)
 
                 MDLabel:
                     text: "Location / City"
@@ -742,9 +728,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
-                    icon_left: "map-marker"
                     size_hint_y: None
-                    height: dp(54)
+                    height: dp(52)
 
                 MDLabel:
                     text: "Skills (comma separated)"
@@ -765,9 +750,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
-                    icon_left: "tag-multiple"
                     size_hint_y: None
-                    height: dp(54)
+                    height: dp(52)
 
                 MDLabel:
                     text: "Notes (optional)"
@@ -782,7 +766,6 @@ KV = """
                     hint_text: "Any extra info about this person"
                     mode: "outlined"
                     multiline: True
-                    max_height: dp(78)
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
@@ -790,9 +773,8 @@ KV = """
                     hint_text_color_focus: hex("#8892a4")
                     line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
-                    icon_left: "note-text"
                     size_hint_y: None
-                    height: dp(78)
+                    height: dp(72)
 
             MDLabel:
                 text: 'Quick Add Skills:'
@@ -803,31 +785,13 @@ KV = """
                 size_hint_y: None
                 height: dp(24)
 
-            ScrollView:
+            # Chip rows injected from Python
+            MDBoxLayout:
+                id: chips_container
+                orientation: 'vertical'
+                spacing: dp(8)
                 size_hint_y: None
-                height: dp(44)
-                do_scroll_y: False
-                bar_width: 0
-                MDBoxLayout:
-                    id: quick_chips_1
-                    orientation: 'horizontal'
-                    size_hint_x: None
-                    width: self.minimum_width
-                    height: dp(40)
-                    spacing: dp(8)
-
-            ScrollView:
-                size_hint_y: None
-                height: dp(44)
-                do_scroll_y: False
-                bar_width: 0
-                MDBoxLayout:
-                    id: quick_chips_2
-                    orientation: 'horizontal'
-                    size_hint_x: None
-                    width: self.minimum_width
-                    height: dp(40)
-                    spacing: dp(8)
+                adaptive_height: True
 
             MDButton:
                 id: save_btn
@@ -859,60 +823,39 @@ class SkillBondSM(ScreenManager):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  AUTOCOMPLETE  (fixes "suggestions not showing while typing")
+#  AUTOCOMPLETE
 # ══════════════════════════════════════════════════════════════════════════════
 class Autocomplete:
-    """
-    Attaches a live-filtering dropdown menu to an MDTextField.
-
-    How it fixes the bug:
-    - Binds to `text` property → fires on EVERY single keystroke
-    - 120ms Clock debounce → avoids rebuilding on each individual character
-    - Full dismiss → rebuild → reopen cycle → menu always shows fresh data
-    - Also binds to `focus` → shows all suggestions when field is first tapped
-    """
-
     def __init__(self, field: MDTextField, get_items_fn, on_select_fn=None):
         self.field      = field
-        self.get_items  = get_items_fn   # callable returning list[str]
-        self.on_select  = on_select_fn   # optional callback after selection
+        self.get_items  = get_items_fn
+        self.on_select  = on_select_fn
         self.menu       = None
         self._debounce  = None
         self._selecting = False
-
         field.bind(text=self._on_text)
         field.bind(focus=self._on_focus)
 
     def _on_text(self, instance, value):
-        """Key fix: fires on every keystroke, not just focus change."""
         if self._debounce:
             self._debounce.cancel()
-        self._debounce = Clock.schedule_once(self._refresh, 0.12)
+        self._debounce = Clock.schedule_once(self._refresh, 0.15)
 
     def _on_focus(self, instance, focused):
         if focused:
-            Clock.schedule_once(self._refresh, 0.28)
+            Clock.schedule_once(self._refresh, 0.3)
         else:
             Clock.schedule_once(lambda dt: self._close(), 0.3)
 
     def _refresh(self, dt=None):
         if self._selecting:
             return
-
         query    = self.field.text.strip().lower()
         all_vals = self.get_items()
-
-        # Empty query → show everything; otherwise substring filter
-        filtered = (
-            [v for v in all_vals if query in v.lower()]
-            if query else all_vals
-        )
-
+        filtered = [v for v in all_vals if query in v.lower()] if query else all_vals
         self._close()
-
         if not filtered or not self.field.focus:
             return
-
         menu_items = [
             {
                 "viewclass": "OneLineListItem",
@@ -923,7 +866,6 @@ class Autocomplete:
             }
             for v in filtered[:14]
         ]
-
         self.menu = MDDropdownMenu(
             caller=self.field,
             items=menu_items,
@@ -962,21 +904,22 @@ class Autocomplete:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  FRIEND CARD  (built in Python, not KV)
+#  FRIEND CARD
 # ══════════════════════════════════════════════════════════════════════════════
-def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
-    """Dynamically build one friend card widget."""
+def make_friend_card(friend: dict, on_edit, on_delete, on_detail, on_call) -> MDCard:
     color_hex    = AVATAR_COLORS[hash(friend["name"]) % len(AVATAR_COLORS)]
     first_letter = friend["name"][0].upper() if friend["name"] else "?"
     skills_text  = friend.get("skills_list") or ""
     skill_tags   = [s.strip() for s in skills_text.split(",") if s.strip()]
     visible_tags = skill_tags[:3]
     extra        = max(0, len(skill_tags) - 3)
+    has_phone    = bool(friend.get("phone", "").strip())
 
+    card_height  = dp(170) if has_phone else dp(158)
     card = MDCard(
         orientation="vertical",
         padding=dp(14), spacing=dp(8),
-        size_hint_y=None, height=dp(158),
+        size_hint_y=None, height=card_height,
         md_bg_color=get_color_from_hex(C_CARD),
         line_color=get_color_from_hex(C_BORDER),
         radius=[dp(16)], elevation=0,
@@ -984,7 +927,7 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
     )
     card.bind(on_release=lambda x: on_detail(friend))
 
-    # ── Row 1: avatar + name/meta ────────────────────────────────────────────
+    # Row 1: avatar + name/meta
     top = MDBoxLayout(orientation="horizontal", spacing=dp(12),
                       size_hint_y=None, height=dp(58))
 
@@ -996,9 +939,7 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
     )
     with avatar.canvas.before:
         Color(*get_color_from_hex(color_hex))
-        avatar._bg = RoundedRectangle(
-            size=avatar.size, pos=avatar.pos, radius=[dp(13)]
-        )
+        avatar._bg = RoundedRectangle(size=avatar.size, pos=avatar.pos, radius=[dp(13)])
     def _av_upd(inst, _):
         inst._bg.size = inst.size
         inst._bg.pos  = inst.pos
@@ -1027,7 +968,7 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
     top.add_widget(avatar)
     top.add_widget(info)
 
-    # ── Row 2: skill chips ───────────────────────────────────────────────────
+    # Row 2: skill chips
     skills_row = MDBoxLayout(orientation="horizontal", spacing=dp(6),
                               size_hint_y=None, height=dp(28))
     if visible_tags:
@@ -1042,15 +983,12 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
             )
             with chip.canvas.before:
                 Color(*get_color_from_hex("#0a2535"))
-                chip._bg = RoundedRectangle(
-                    size=chip.size, pos=chip.pos, radius=[dp(8)]
-                )
+                chip._bg = RoundedRectangle(size=chip.size, pos=chip.pos, radius=[dp(8)])
             def _chip_upd(inst, _):
                 inst._bg.size = inst.size
                 inst._bg.pos  = inst.pos
             chip.bind(size=_chip_upd, pos=_chip_upd)
             skills_row.add_widget(chip)
-
         if extra > 0:
             skills_row.add_widget(MDLabel(
                 text=f"+{extra}",
@@ -1067,12 +1005,14 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
             font_size="12sp",
         ))
 
-    # ── Row 3: action buttons ────────────────────────────────────────────────
-    btn_row = MDBoxLayout(orientation="horizontal", spacing=dp(8),
+    # Row 3: EDIT | DELETE | CALL (call only if phone exists)
+    btn_row = MDBoxLayout(orientation="horizontal", spacing=dp(6),
                            size_hint_y=None, height=dp(36))
 
-    # KivyMD 2.0.1: MDButton with MDButtonText child
-    btn_edit = MDButton(style="tonal", size_hint_x=0.5,
+    edit_w = 0.5 if not has_phone else 0.38
+    del_w  = 0.5 if not has_phone else 0.38
+
+    btn_edit = MDButton(style="tonal", size_hint_x=edit_w,
                          theme_bg_color="Custom",
                          md_bg_color=get_color_from_hex("#0d1f2d"))
     btn_edit.add_widget(MDButtonText(text="EDIT", bold=True,
@@ -1080,7 +1020,7 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
                                       text_color=get_color_from_hex(C_ACCENT)))
     btn_edit.bind(on_release=lambda x: on_edit(friend))
 
-    btn_del = MDButton(style="tonal", size_hint_x=0.5,
+    btn_del = MDButton(style="tonal", size_hint_x=del_w,
                         theme_bg_color="Custom",
                         md_bg_color=get_color_from_hex("#2a1515"))
     btn_del.add_widget(MDButtonText(text="DELETE", bold=True,
@@ -1091,6 +1031,16 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
     btn_row.add_widget(btn_edit)
     btn_row.add_widget(btn_del)
 
+    if has_phone:
+        btn_call = MDButton(style="tonal", size_hint_x=0.24,
+                             theme_bg_color="Custom",
+                             md_bg_color=get_color_from_hex("#0a2510"))
+        btn_call.add_widget(MDButtonText(text="📞 CALL", bold=True,
+                                          theme_text_color="Custom",
+                                          text_color=get_color_from_hex("#22c55e")))
+        btn_call.bind(on_release=lambda x: on_call(friend))
+        btn_row.add_widget(btn_call)
+
     card.add_widget(top)
     card.add_widget(skills_row)
     card.add_widget(btn_row)
@@ -1098,13 +1048,9 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail) -> MDCard:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  DIALOG HELPER  (KivyMD 2.0.1 component-based API)
+#  DIALOG HELPER
 # ══════════════════════════════════════════════════════════════════════════════
 def make_dialog(title: str, text: str, buttons: list) -> MDDialog:
-    """
-    buttons = list of (label, bg_hex, text_hex, on_release_callback)
-    Works with both KivyMD 2.0.1 (component API) and older builds.
-    """
     btn_widgets = []
     for lbl, bg, tc, cb in buttons:
         b = MDButton(style="tonal", theme_bg_color="Custom",
@@ -1134,12 +1080,7 @@ def make_dialog(title: str, text: str, buttons: list) -> MDDialog:
             ),
         )
     else:
-        # Fallback: simple MDDialog with title/text kwargs
-        return MDDialog(
-            title=title,
-            text=text,
-            buttons=btn_widgets,
-        )
+        return MDDialog(title=title, text=text, buttons=btn_widgets)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1156,6 +1097,7 @@ class LoginScreen(Screen):
         ok, result = app.db.login(u, p)
         if ok:
             app.current_user = result
+            app.save_session(result["id"])
             self.ids.login_password.text = ""
             app.root.get_screen("dashboard").on_enter_screen()
             app.root.current = "dashboard"
@@ -1205,13 +1147,10 @@ class DashboardScreen(Screen):
     def _setup_autocomplete(self):
         app = MDApp.get_running_app()
         uid = app.current_user["id"]
-
-        # Destroy previous (important on re-login)
         if self._skill_ac:
             self._skill_ac.destroy()
         if self._loc_ac:
             self._loc_ac.destroy()
-
         self._skill_ac = Autocomplete(
             field=self.ids.search_skill,
             get_items_fn=lambda: app.db.get_all_skills(uid),
@@ -1222,7 +1161,6 @@ class DashboardScreen(Screen):
             get_items_fn=lambda: app.db.get_all_locations(uid),
             on_select_fn=lambda v: self._load_friends(),
         )
-        # Name: live filter on every keystroke
         self.ids.search_name.bind(text=lambda i, v: self._load_friends())
 
     def _load_friends(self, *args):
@@ -1266,8 +1204,33 @@ class DashboardScreen(Screen):
                 on_edit=self._edit_friend,
                 on_delete=self._confirm_delete,
                 on_detail=self._show_detail,
+                on_call=self._call_friend,
             )
             self.ids.friends_list.add_widget(card)
+
+    def _call_friend(self, friend):
+        """Open Android phone dialer with friend's number pre-filled."""
+        phone = (friend.get("phone") or "").strip()
+        if not phone:
+            MDApp.get_running_app().snack("No phone number saved.")
+            return
+        clean = "".join(c for c in phone if c.isdigit() or c == "+")
+        try:
+            from kivy.utils import platform
+            if platform == "android":
+                from jnius import autoclass  # type: ignore
+                Intent         = autoclass("android.content.Intent")
+                Uri            = autoclass("android.net.Uri")
+                PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                intent = Intent(Intent.ACTION_DIAL)
+                intent.setData(Uri.parse(f"tel:{clean}"))
+                PythonActivity.mActivity.startActivity(intent)
+            else:
+                import webbrowser
+                webbrowser.open(f"tel:{clean}")
+        except Exception as e:
+            print(f"[Call error] {e}")
+            MDApp.get_running_app().snack(f"Opening dialer for {phone}...")
 
     def go_add_friend(self):
         app = MDApp.get_running_app()
@@ -1305,8 +1268,8 @@ class DashboardScreen(Screen):
         self._load_friends()
 
     def _show_detail(self, friend):
-        app        = MDApp.get_running_app()
-        skills     = app.db.get_friend_skills(friend["id"])
+        app    = MDApp.get_running_app()
+        skills = app.db.get_friend_skills(friend["id"])
         if self._active_dlg:
             self._active_dlg.dismiss()
         self._active_dlg = make_dialog(
@@ -1318,9 +1281,9 @@ class DashboardScreen(Screen):
                 f"[b]Notes:[/b] {friend.get('notes') or '—'}"
             ),
             buttons=[
-                ("CLOSE",  C_ELEVATED, C_SECOND,
+                ("CLOSE", C_ELEVATED, C_SECOND,
                  lambda x: self._active_dlg.dismiss()),
-                ("EDIT",   "#003540",  C_ACCENT,
+                ("EDIT",  "#003540",  C_ACCENT,
                  lambda x: (self._active_dlg.dismiss(), self._edit_friend(friend))),
             ],
         )
@@ -1329,6 +1292,7 @@ class DashboardScreen(Screen):
     def do_logout(self):
         app = MDApp.get_running_app()
         app.current_user = None
+        app.clear_session()
         self.ids.search_name.text     = ""
         self.ids.search_skill.text    = ""
         self.ids.search_location.text = ""
@@ -1345,32 +1309,65 @@ class AddEditScreen(Screen):
         self._friend_id = None
 
     def on_kv_post(self, base_widget):
-        self._build_quick_chips()
+        # Delay chip building so Window.width is known
+        Clock.schedule_once(lambda dt: self._build_quick_chips(), 0.1)
 
     def _build_quick_chips(self):
-        row1 = self.ids.quick_chips_1
-        row2 = self.ids.quick_chips_2
-        row1.clear_widgets()
-        row2.clear_widgets()
-        half = len(QUICK_SKILLS) // 2
+        """
+        Pack skill chips into rows that fit the screen width.
+        No scrolling needed — chips wrap onto new lines.
+        """
+        container = self.ids.chips_container
+        container.clear_widgets()
 
-        for i, sk in enumerate(QUICK_SKILLS):
-            chip_width = dp(len(sk) * 9 + 32)
-            btn = MDButton(
-                style="outlined",
-                size_hint=(None, None),
-                size=(chip_width, dp(38)),
-                theme_bg_color="Custom",
-                md_bg_color=get_color_from_hex("#0a1a25"),
-                line_color=get_color_from_hex(C_ACCENT),
+        # Use actual window width; fallback to 360dp
+        screen_w  = Window.width if Window.width > 10 else dp(360)
+        padding   = dp(36)
+        gap       = dp(8)
+        available = screen_w - padding
+
+        # Measure each chip
+        chip_data = [(sk, dp(len(sk) * 8 + 28)) for sk in QUICK_SKILLS]
+
+        # Greedy row packing
+        rows   = []
+        row    = []
+        used_w = 0.0
+        for sk, w in chip_data:
+            need = w if not row else w + gap
+            if row and used_w + need > available:
+                rows.append(row)
+                row    = [(sk, w)]
+                used_w = w
+            else:
+                row.append((sk, w))
+                used_w += need
+        if row:
+            rows.append(row)
+
+        for row_chips in rows:
+            row_box = MDBoxLayout(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(40),
+                spacing=dp(8),
             )
-            btn.add_widget(MDButtonText(
-                text=sk, font_size="12sp",
-                theme_text_color="Custom",
-                text_color=get_color_from_hex(C_ACCENT),
-            ))
-            btn.bind(on_release=lambda x, s=sk: self._add_quick_skill(s))
-            (row1 if i < half else row2).add_widget(btn)
+            for sk, w in row_chips:
+                btn = MDButton(
+                    style="outlined",
+                    size_hint=(None, None),
+                    size=(w, dp(36)),
+                    theme_bg_color="Custom",
+                    md_bg_color=get_color_from_hex("#0a1a25"),
+                    line_color=get_color_from_hex(C_ACCENT),
+                )
+                btn.add_widget(MDButtonText(
+                    text=sk, font_size="12sp",
+                    theme_text_color="Custom",
+                    text_color=get_color_from_hex(C_ACCENT),
+                ))
+                btn.bind(on_release=lambda x, s=sk: self._add_quick_skill(s))
+                row_box.add_widget(btn)
+            container.add_widget(row_box)
 
     def _add_quick_skill(self, skill: str):
         field = self.ids.f_skills
@@ -1382,9 +1379,8 @@ class AddEditScreen(Screen):
     def set_mode(self, mode: str, friend=None, skills=None):
         self._mode      = mode
         self._friend_id = friend["id"] if friend else None
-        # Update button text via the MDButtonText child id in KV
         self.ids.save_btn_text.text = "SAVE FRIEND" if mode == "add" else "UPDATE FRIEND"
-        self.ids.form_title.text    = "Add Friend"   if mode == "add" else "Edit Friend"
+        self.ids.form_title.text    = "Add Friend"  if mode == "add" else "Edit Friend"
         self.ids.f_name.text     = "" if mode == "add" else (friend.get("name")     or "")
         self.ids.f_phone.text    = "" if mode == "add" else (friend.get("phone")    or "")
         self.ids.f_location.text = "" if mode == "add" else (friend.get("location") or "")
@@ -1427,12 +1423,65 @@ class SkillBondApp(MDApp):
         self.theme_cls.theme_style     = "Dark"
         self.theme_cls.primary_palette = "Cyan"
         self.theme_cls.accent_palette  = "DeepPurple"
-        db_path = os.path.join(self.user_data_dir, "skillbond.db")
-        self.db = Database(db_path)
+        self.db_path      = os.path.join(self.user_data_dir, "skillbond.db")
+        self.session_path = os.path.join(self.user_data_dir, "session.json")
+        self.db = Database(self.db_path)
         return SkillBondSM(transition=FadeTransition(duration=0.2))
 
+    def on_start(self):
+        """Auto-login using saved session (by user_id — no password stored)."""
+        session = self._load_session()
+        if session and "user_id" in session:
+            user = self._fetch_user_by_id(session["user_id"])
+            if user:
+                self.current_user = user
+                dash = self.root.get_screen("dashboard")
+                dash.on_enter_screen()
+                self.root.current = "dashboard"
+                return
+        self.root.current = "login"
+
+    # ── Session helpers ───────────────────────────────────────────────────────
+
+    def save_session(self, user_id: int):
+        try:
+            with open(self.session_path, "w") as f:
+                json.dump({"user_id": user_id}, f)
+        except Exception as e:
+            print(f"[Session save] {e}")
+
+    def _load_session(self):
+        try:
+            if not os.path.exists(self.session_path):
+                return None
+            with open(self.session_path) as f:
+                return json.load(f)
+        except Exception:
+            return None
+
+    def clear_session(self):
+        try:
+            if os.path.exists(self.session_path):
+                os.remove(self.session_path)
+        except Exception as e:
+            print(f"[Session clear] {e}")
+
+    def _fetch_user_by_id(self, user_id: int):
+        """Load user row directly by ID — safe for auto-login."""
+        try:
+            import sqlite3
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT * FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            conn.close()
+            return dict(row) if row else None
+        except Exception as e:
+            print(f"[FetchUser] {e}")
+            return None
+
     def snack(self, message: str):
-        """KivyMD 2.0.1 Snackbar — uses y= instead of pos_hint for vertical position."""
         try:
             MDSnackbar(
                 MDSnackbarText(text=message),
