@@ -22,7 +22,6 @@ from kivy.graphics import Color, RoundedRectangle
 from kivy.core.window import Window
 
 from kivymd.app import MDApp
-from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDButton, MDButtonText, MDIconButton
 from kivymd.uix.snackbar import MDSnackbar, MDSnackbarText
@@ -502,7 +501,7 @@ KV = """
                     padding: [dp(14), dp(12)]
                     spacing: dp(6)
                     size_hint_y: None
-                    height: dp(292)
+                    height: self.minimum_height
                     md_bg_color: hex("#0e1220")
                     line_color: hex("#1a2035")
                     radius: [dp(16)]
@@ -561,6 +560,13 @@ KV = """
                         size_hint_y: None
                         height: dp(50)
 
+                    MDBoxLayout:
+                        id: skill_suggestions
+                        orientation: 'vertical'
+                        size_hint_y: None
+                        adaptive_height: True
+                        spacing: dp(2)
+
                     MDLabel:
                         text: "Location"
                         theme_text_color: "Custom"
@@ -582,6 +588,13 @@ KV = """
                         line_color_focus: hex("#00d4ff")
                         size_hint_y: None
                         height: dp(50)
+
+                    MDBoxLayout:
+                        id: location_suggestions
+                        orientation: 'vertical'
+                        size_hint_y: None
+                        adaptive_height: True
+                        spacing: dp(2)
 
                 # Results header
                 MDBoxLayout:
@@ -823,29 +836,45 @@ class SkillBondSM(ScreenManager):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  AUTOCOMPLETE
+#  AUTOCOMPLETE  — inline suggestion list (no MDDropdownMenu, crash-safe)
 # ══════════════════════════════════════════════════════════════════════════════
 class Autocomplete:
-    def __init__(self, field: MDTextField, get_items_fn, on_select_fn=None):
-        self.field      = field
-        self.get_items  = get_items_fn
-        self.on_select  = on_select_fn
-        self.menu       = None
-        self._debounce  = None
-        self._selecting = False
+    """
+    Shows matching suggestions as tappable MDLabel rows in a container
+    widget placed directly in the layout (below the field).
+    No MDDropdownMenu — avoids the Android crash entirely.
+
+    Usage:
+        ac = Autocomplete(field, suggestion_box, get_items_fn, on_select_fn)
+        # suggestion_box: an MDBoxLayout with adaptive_height=True placed
+        #                 directly below the field in your layout.
+    """
+
+    def __init__(self, field: MDTextField, suggestion_box: MDBoxLayout,
+                 get_items_fn, on_select_fn=None):
+        self.field          = field
+        self.box            = suggestion_box
+        self.get_items      = get_items_fn
+        self.on_select      = on_select_fn
+        self._debounce      = None
+        self._selecting     = False
+
         field.bind(text=self._on_text)
         field.bind(focus=self._on_focus)
 
-    def _on_text(self, instance, value):
+    def _on_text(self, inst, value):
+        if self._selecting:
+            return
         if self._debounce:
             self._debounce.cancel()
-        self._debounce = Clock.schedule_once(self._refresh, 0.15)
+        self._debounce = Clock.schedule_once(self._refresh, 0.18)
 
-    def _on_focus(self, instance, focused):
+    def _on_focus(self, inst, focused):
         if focused:
-            Clock.schedule_once(self._refresh, 0.3)
+            Clock.schedule_once(self._refresh, 0.25)
         else:
-            Clock.schedule_once(lambda dt: self._close(), 0.3)
+            # Small delay so a tap on a suggestion registers before we hide
+            Clock.schedule_once(lambda dt: self._clear(), 0.25)
 
     def _refresh(self, dt=None):
         if self._selecting:
@@ -853,49 +882,44 @@ class Autocomplete:
         query    = self.field.text.strip().lower()
         all_vals = self.get_items()
         filtered = [v for v in all_vals if query in v.lower()] if query else all_vals
-        self._close()
-        if not filtered or not self.field.focus:
+        self._draw(filtered[:10])
+
+    def _draw(self, items):
+        self.box.clear_widgets()
+        if not items:
             return
-        menu_items = [
-            {
-                "viewclass": "OneLineListItem",
-                "text": v,
-                "theme_text_color": "Custom",
-                "text_color": get_color_from_hex(C_TEXT),
-                "on_release": lambda x=v: self._select(x),
-            }
-            for v in filtered[:14]
-        ]
-        self.menu = MDDropdownMenu(
-            caller=self.field,
-            items=menu_items,
-            width_mult=4,
-            max_height=dp(240),
-            elevation=8,
-            background_color=get_color_from_hex("#111827"),
-            border_margin=dp(4),
-            opening_time=0.12,
-        )
-        self.menu.open()
+        for val in items:
+            row = MDCard(
+                orientation="vertical",
+                size_hint_y=None, height=dp(38),
+                md_bg_color=get_color_from_hex("#111827"),
+                line_color=get_color_from_hex("#1a2035"),
+                radius=[dp(6)], elevation=0,
+                ripple_behavior=True,
+            )
+            row.add_widget(MDLabel(
+                text=f"  {val}",
+                theme_text_color="Custom",
+                text_color=get_color_from_hex(C_TEXT),
+                font_size="13sp",
+                valign="center",
+            ))
+            row.bind(on_release=lambda x, v=val: self._select(v))
+            self.box.add_widget(row)
 
     def _select(self, value: str):
         self._selecting = True
         self.field.text = value
-        self._close()
+        self._clear()
         if self.on_select:
             self.on_select(value)
-        Clock.schedule_once(lambda dt: setattr(self, "_selecting", False), 0.15)
+        Clock.schedule_once(lambda dt: setattr(self, "_selecting", False), 0.2)
 
-    def _close(self):
-        if self.menu:
-            try:
-                self.menu.dismiss()
-            except Exception:
-                pass
-            self.menu = None
+    def _clear(self):
+        self.box.clear_widgets()
 
     def destroy(self):
-        self._close()
+        self._clear()
         try:
             self.field.unbind(text=self._on_text)
             self.field.unbind(focus=self._on_focus)
@@ -906,6 +930,32 @@ class Autocomplete:
 # ══════════════════════════════════════════════════════════════════════════════
 #  FRIEND CARD
 # ══════════════════════════════════════════════════════════════════════════════
+def _make_action_btn(label: str, bg_hex: str, text_hex: str, callback, size_hint_x=1):
+    """
+    Build a simple rectangular action button using MDCard + MDLabel.
+    Avoids MDButton tonal style which renders as overlapping circles on Android.
+    """
+    btn_card = MDCard(
+        orientation="vertical",
+        size_hint=(size_hint_x, None),
+        height=dp(34),
+        md_bg_color=get_color_from_hex(bg_hex),
+        line_color=(0, 0, 0, 0),
+        radius=[dp(8)],
+        elevation=0,
+        ripple_behavior=True,
+    )
+    btn_card.add_widget(MDLabel(
+        text=label,
+        halign="center", valign="center",
+        theme_text_color="Custom",
+        text_color=get_color_from_hex(text_hex),
+        font_size="12sp", bold=True,
+    ))
+    btn_card.bind(on_release=lambda x: callback())
+    return btn_card
+
+
 def make_friend_card(friend: dict, on_edit, on_delete, on_detail, on_call) -> MDCard:
     color_hex    = AVATAR_COLORS[hash(friend["name"]) % len(AVATAR_COLORS)]
     first_letter = friend["name"][0].upper() if friend["name"] else "?"
@@ -915,11 +965,10 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail, on_call) -> MD
     extra        = max(0, len(skill_tags) - 3)
     has_phone    = bool(friend.get("phone", "").strip())
 
-    card_height  = dp(170) if has_phone else dp(158)
     card = MDCard(
         orientation="vertical",
         padding=dp(14), spacing=dp(8),
-        size_hint_y=None, height=card_height,
+        size_hint_y=None, height=dp(162),
         md_bg_color=get_color_from_hex(C_CARD),
         line_color=get_color_from_hex(C_BORDER),
         radius=[dp(16)], elevation=0,
@@ -929,7 +978,7 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail, on_call) -> MD
 
     # Row 1: avatar + name/meta
     top = MDBoxLayout(orientation="horizontal", spacing=dp(12),
-                      size_hint_y=None, height=dp(58))
+                      size_hint_y=None, height=dp(56))
 
     avatar = MDLabel(
         text=first_letter, halign="center", valign="center",
@@ -970,20 +1019,20 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail, on_call) -> MD
 
     # Row 2: skill chips
     skills_row = MDBoxLayout(orientation="horizontal", spacing=dp(6),
-                              size_hint_y=None, height=dp(28))
+                              size_hint_y=None, height=dp(26))
     if visible_tags:
         for sk in visible_tags:
             chip = MDLabel(
                 text=f" {sk} ", halign="center", valign="center",
                 theme_text_color="Custom",
                 text_color=get_color_from_hex(C_ACCENT),
-                font_size="12sp",
+                font_size="11sp",
                 size_hint=(None, None),
-                size=(dp(max(len(sk) * 7 + 18, 42)), dp(24)),
+                size=(dp(max(len(sk) * 7 + 16, 40)), dp(22)),
             )
             with chip.canvas.before:
                 Color(*get_color_from_hex("#0a2535"))
-                chip._bg = RoundedRectangle(size=chip.size, pos=chip.pos, radius=[dp(8)])
+                chip._bg = RoundedRectangle(size=chip.size, pos=chip.pos, radius=[dp(6)])
             def _chip_upd(inst, _):
                 inst._bg.size = inst.size
                 inst._bg.pos  = inst.pos
@@ -994,52 +1043,28 @@ def make_friend_card(friend: dict, on_edit, on_delete, on_detail, on_call) -> MD
                 text=f"+{extra}",
                 theme_text_color="Custom",
                 text_color=get_color_from_hex("#a78bfa"),
-                font_size="12sp",
-                size_hint_x=None, width=dp(28),
+                font_size="11sp",
+                size_hint_x=None, width=dp(26),
             ))
     else:
         skills_row.add_widget(MDLabel(
             text="No skills added",
             theme_text_color="Custom",
             text_color=get_color_from_hex(C_MUTED),
-            font_size="12sp",
+            font_size="11sp",
         ))
 
-    # Row 3: EDIT | DELETE | CALL (call only if phone exists)
+    # Row 3: EDIT | DELETE | CALL — plain rectangular cards, no MDButton tonal
     btn_row = MDBoxLayout(orientation="horizontal", spacing=dp(6),
-                           size_hint_y=None, height=dp(36))
-
-    edit_w = 0.5 if not has_phone else 0.38
-    del_w  = 0.5 if not has_phone else 0.38
-
-    btn_edit = MDButton(style="tonal", size_hint_x=edit_w,
-                         theme_bg_color="Custom",
-                         md_bg_color=get_color_from_hex("#0d1f2d"))
-    btn_edit.add_widget(MDButtonText(text="EDIT", bold=True,
-                                      theme_text_color="Custom",
-                                      text_color=get_color_from_hex(C_ACCENT)))
-    btn_edit.bind(on_release=lambda x: on_edit(friend))
-
-    btn_del = MDButton(style="tonal", size_hint_x=del_w,
-                        theme_bg_color="Custom",
-                        md_bg_color=get_color_from_hex("#2a1515"))
-    btn_del.add_widget(MDButtonText(text="DELETE", bold=True,
-                                     theme_text_color="Custom",
-                                     text_color=get_color_from_hex(C_DANGER)))
-    btn_del.bind(on_release=lambda x: on_delete(friend))
-
-    btn_row.add_widget(btn_edit)
-    btn_row.add_widget(btn_del)
+                           size_hint_y=None, height=dp(34))
 
     if has_phone:
-        btn_call = MDButton(style="tonal", size_hint_x=0.24,
-                             theme_bg_color="Custom",
-                             md_bg_color=get_color_from_hex("#0a2510"))
-        btn_call.add_widget(MDButtonText(text="📞 CALL", bold=True,
-                                          theme_text_color="Custom",
-                                          text_color=get_color_from_hex("#22c55e")))
-        btn_call.bind(on_release=lambda x: on_call(friend))
-        btn_row.add_widget(btn_call)
+        btn_row.add_widget(_make_action_btn("EDIT",   "#0d2535", C_ACCENT,  lambda: on_edit(friend),   size_hint_x=0.34))
+        btn_row.add_widget(_make_action_btn("DELETE", "#2a1010", C_DANGER,  lambda: on_delete(friend), size_hint_x=0.34))
+        btn_row.add_widget(_make_action_btn("📞 CALL","#0a2510", "#22c55e", lambda: on_call(friend),   size_hint_x=0.32))
+    else:
+        btn_row.add_widget(_make_action_btn("EDIT",   "#0d2535", C_ACCENT,  lambda: on_edit(friend),   size_hint_x=0.5))
+        btn_row.add_widget(_make_action_btn("DELETE", "#2a1010", C_DANGER,  lambda: on_delete(friend), size_hint_x=0.5))
 
     card.add_widget(top)
     card.add_widget(skills_row)
@@ -1153,11 +1178,13 @@ class DashboardScreen(Screen):
             self._loc_ac.destroy()
         self._skill_ac = Autocomplete(
             field=self.ids.search_skill,
+            suggestion_box=self.ids.skill_suggestions,
             get_items_fn=lambda: app.db.get_all_skills(uid),
             on_select_fn=lambda v: self._load_friends(),
         )
         self._loc_ac = Autocomplete(
             field=self.ids.search_location,
+            suggestion_box=self.ids.location_suggestions,
             get_items_fn=lambda: app.db.get_all_locations(uid),
             on_select_fn=lambda v: self._load_friends(),
         )
