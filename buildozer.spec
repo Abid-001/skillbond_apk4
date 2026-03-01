@@ -12,8 +12,7 @@ source.exclude_dirs = venv,.venv,.git,__pycache__,.github,bin,.buildozer
 # ── Requirements ──────────────────────────────────────────────────────────────
 # KivyMD 2.0.1 not on PyPI — use GitHub zip
 # MUST be single line
-requirements = python3,kivy==2.3.0,https://github.com/kivymd/KivyMD/archive/2.0.1.zip,pillow,certifi
-
+requirements = python3,kivy==2.3.0,kivymd2==2.0.1,pillow,certifi,materialyoucolor,exceptiongroup,asyncgui,asynckivy
 # ── Android ───────────────────────────────────────────────────────────────────
 android.permissions      = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 android.api              = 33
