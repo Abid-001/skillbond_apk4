@@ -55,6 +55,7 @@ C_ACCENT2  = "#7c3aed"
 C_TEXT     = "#f0f4ff"
 C_SECOND   = "#8892a4"
 C_MUTED    = "#4a5568"
+C_HINT     = "#8892a4"  # visible hint text color for Android
 C_DANGER   = "#ef4444"
 C_BORDER   = "#1a2035"
 
@@ -143,38 +144,60 @@ KV = """
         MDCard:
             orientation: 'vertical'
             padding: dp(24)
-            spacing: dp(14)
+            spacing: dp(10)
             size_hint: 1, None
-            height: dp(252)
+            height: dp(270)
             md_bg_color: hex("#0e1220")
             line_color: hex("#1a2035")
             radius: [dp(20)]
             elevation: 0
 
+            MDLabel:
+                text: "Username"
+                theme_text_color: "Custom"
+                text_color: hex("#8892a4")
+                font_size: "12sp"
+                size_hint_y: None
+                height: dp(18)
+
             MDTextField:
                 id: login_username
-                hint_text: "Username"
+                hint_text: "Enter your username"
                 mode: "outlined"
                 theme_text_color: "Custom"
                 text_color_normal: hex("#f0f4ff")
                 text_color_focus: hex("#f0f4ff")
-                hint_text_color_normal: hex("#4a5568")
-                line_color_normal: hex("#1a2035")
+                hint_text_color_normal: hex("#8892a4")
+                hint_text_color_focus: hex("#8892a4")
+                line_color_normal: hex("#2a3a55")
                 line_color_focus: hex("#00d4ff")
                 icon_left: "account"
+                size_hint_y: None
+                height: dp(54)
+
+            MDLabel:
+                text: "Password"
+                theme_text_color: "Custom"
+                text_color: hex("#8892a4")
+                font_size: "12sp"
+                size_hint_y: None
+                height: dp(18)
 
             MDTextField:
                 id: login_password
-                hint_text: "Password"
+                hint_text: "Enter your password"
                 mode: "outlined"
                 password: True
                 theme_text_color: "Custom"
                 text_color_normal: hex("#f0f4ff")
                 text_color_focus: hex("#f0f4ff")
-                hint_text_color_normal: hex("#4a5568")
-                line_color_normal: hex("#1a2035")
+                hint_text_color_normal: hex("#8892a4")
+                hint_text_color_focus: hex("#8892a4")
+                line_color_normal: hex("#2a3a55")
                 line_color_focus: hex("#00d4ff")
                 icon_left: "lock"
+                size_hint_y: None
+                height: dp(54)
 
             MDButton:
                 style: "filled"
@@ -239,51 +262,84 @@ KV = """
             MDCard:
                 orientation: 'vertical'
                 padding: dp(24)
-                spacing: dp(14)
+                spacing: dp(8)
                 size_hint: 1, None
-                height: dp(400)
+                height: dp(440)
                 md_bg_color: hex("#0e1220")
                 line_color: hex("#1a2035")
                 radius: [dp(20)]
                 elevation: 0
 
+                MDLabel:
+                    text: "Username (min 3 characters)"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
+
                 MDTextField:
                     id: reg_username
-                    hint_text: "Username (min 3 chars)"
+                    hint_text: "Choose a username"
                     mode: "outlined"
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
-                    line_color_focus: hex("#00d4ff")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
+                    line_color_focus: hex("#7c3aed")
                     icon_left: "account"
+                    size_hint_y: None
+                    height: dp(54)
+
+                MDLabel:
+                    text: "Password (min 6 characters)"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
 
                 MDTextField:
                     id: reg_password
-                    hint_text: "Password (min 6 chars)"
+                    hint_text: "Choose a password"
                     mode: "outlined"
                     password: True
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
-                    line_color_focus: hex("#00d4ff")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
+                    line_color_focus: hex("#7c3aed")
                     icon_left: "lock"
+                    size_hint_y: None
+                    height: dp(54)
+
+                MDLabel:
+                    text: "Confirm Password"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
 
                 MDTextField:
                     id: reg_confirm
-                    hint_text: "Confirm Password"
+                    hint_text: "Re-enter your password"
                     mode: "outlined"
                     password: True
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
-                    line_color_focus: hex("#00d4ff")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
+                    line_color_focus: hex("#7c3aed")
                     icon_left: "shield-check"
+                    size_hint_y: None
+                    height: dp(54)
 
                 MDButton:
                     style: "filled"
@@ -453,9 +509,9 @@ KV = """
                 MDCard:
                     orientation: 'vertical'
                     padding: [dp(14), dp(12)]
-                    spacing: dp(8)
+                    spacing: dp(6)
                     size_hint_y: None
-                    height: dp(228)
+                    height: dp(288)
                     md_bg_color: hex("#0e1220")
                     line_color: hex("#1a2035")
                     radius: [dp(16)]
@@ -468,7 +524,15 @@ KV = """
                         font_size: '16sp'
                         bold: True
                         size_hint_y: None
-                        height: dp(24)
+                        height: dp(28)
+
+                    MDLabel:
+                        text: "Name"
+                        theme_text_color: "Custom"
+                        text_color: hex("#8892a4")
+                        font_size: "11sp"
+                        size_hint_y: None
+                        height: dp(16)
 
                     MDTextField:
                         id: search_name
@@ -477,34 +541,59 @@ KV = """
                         theme_text_color: "Custom"
                         text_color_normal: hex("#f0f4ff")
                         text_color_focus: hex("#f0f4ff")
-                        hint_text_color_normal: hex("#4a5568")
-                        line_color_normal: hex("#1a2035")
+                        hint_text_color_normal: hex("#8892a4")
+                        hint_text_color_focus: hex("#8892a4")
+                        line_color_normal: hex("#2a3a55")
                         line_color_focus: hex("#00d4ff")
                         icon_left: "magnify"
+                        size_hint_y: None
+                        height: dp(50)
+
+                    MDLabel:
+                        text: "Skill"
+                        theme_text_color: "Custom"
+                        text_color: hex("#8892a4")
+                        font_size: "11sp"
+                        size_hint_y: None
+                        height: dp(16)
 
                     MDTextField:
                         id: search_skill
-                        hint_text: "Filter by skill... (tap to see suggestions)"
+                        hint_text: "Filter by skill..."
                         mode: "outlined"
                         theme_text_color: "Custom"
                         text_color_normal: hex("#f0f4ff")
                         text_color_focus: hex("#f0f4ff")
-                        hint_text_color_normal: hex("#4a5568")
-                        line_color_normal: hex("#1a2035")
+                        hint_text_color_normal: hex("#8892a4")
+                        hint_text_color_focus: hex("#8892a4")
+                        line_color_normal: hex("#2a3a55")
                         line_color_focus: hex("#00d4ff")
                         icon_left: "tag"
+                        size_hint_y: None
+                        height: dp(50)
+
+                    MDLabel:
+                        text: "Location"
+                        theme_text_color: "Custom"
+                        text_color: hex("#8892a4")
+                        font_size: "11sp"
+                        size_hint_y: None
+                        height: dp(16)
 
                     MDTextField:
                         id: search_location
-                        hint_text: "Filter by location... (tap to see suggestions)"
+                        hint_text: "Filter by location..."
                         mode: "outlined"
                         theme_text_color: "Custom"
                         text_color_normal: hex("#f0f4ff")
                         text_color_focus: hex("#f0f4ff")
-                        hint_text_color_normal: hex("#4a5568")
-                        line_color_normal: hex("#1a2035")
+                        hint_text_color_normal: hex("#8892a4")
+                        hint_text_color_focus: hex("#8892a4")
+                        line_color_normal: hex("#2a3a55")
                         line_color_focus: hex("#00d4ff")
                         icon_left: "map-marker"
+                        size_hint_y: None
+                        height: dp(50)
 
                 # Results header ──────────────────────────────────────────────
                 MDBoxLayout:
@@ -579,100 +668,166 @@ KV = """
             MDCard:
                 orientation: 'vertical'
                 padding: dp(20)
-                spacing: dp(13)
+                spacing: dp(6)
                 size_hint_y: None
-                height: dp(530)
+                height: self.minimum_height
                 md_bg_color: hex("#0e1220")
                 line_color: hex("#1a2035")
                 radius: [dp(16)]
                 elevation: 0
 
+                MDLabel:
+                    text: "Full Name *"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
+
                 MDTextField:
                     id: f_name
-                    hint_text: "Full Name *"
+                    hint_text: "Enter full name"
                     mode: "outlined"
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
                     icon_left: "account"
+                    size_hint_y: None
+                    height: dp(54)
+
+                MDLabel:
+                    text: "Phone Number"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
 
                 MDTextField:
                     id: f_phone
-                    hint_text: "Phone Number"
+                    hint_text: "e.g. +880 1234 567890"
                     mode: "outlined"
                     input_type: 'tel'
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
                     icon_left: "phone"
+                    size_hint_y: None
+                    height: dp(54)
+
+                MDLabel:
+                    text: "Location / City"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
 
                 MDTextField:
                     id: f_location
-                    hint_text: "Location / City"
+                    hint_text: "e.g. Dhaka, Chittagong"
                     mode: "outlined"
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
                     icon_left: "map-marker"
+                    size_hint_y: None
+                    height: dp(54)
+
+                MDLabel:
+                    text: "Skills (comma separated)"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
 
                 MDTextField:
                     id: f_skills
-                    hint_text: "Skills (comma separated)"
-                    helper_text: "e.g. Python, Design, Cooking"
-                    helper_text_mode: "persistent"
+                    hint_text: "e.g. Python, Design, Cooking"
                     mode: "outlined"
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
                     icon_left: "tag-multiple"
+                    size_hint_y: None
+                    height: dp(54)
+
+                MDLabel:
+                    text: "Notes (optional)"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8892a4")
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(18)
 
                 MDTextField:
                     id: f_notes
-                    hint_text: "Notes (optional)"
+                    hint_text: "Any extra info about this person"
                     mode: "outlined"
                     multiline: True
                     max_height: dp(78)
                     theme_text_color: "Custom"
                     text_color_normal: hex("#f0f4ff")
                     text_color_focus: hex("#f0f4ff")
-                    hint_text_color_normal: hex("#4a5568")
-                    line_color_normal: hex("#1a2035")
+                    hint_text_color_normal: hex("#8892a4")
+                    hint_text_color_focus: hex("#8892a4")
+                    line_color_normal: hex("#2a3a55")
                     line_color_focus: hex("#00d4ff")
                     icon_left: "note-text"
+                    size_hint_y: None
+                    height: dp(78)
 
             MDLabel:
                 text: 'Quick Add Skills:'
                 theme_text_color: 'Custom'
                 text_color: hex("#8892a4")
-                font_size: '12sp'
+                font_size: '13sp'
+                bold: True
                 size_hint_y: None
-                height: dp(20)
+                height: dp(24)
 
-            MDBoxLayout:
-                id: quick_chips_1
-                orientation: 'horizontal'
+            ScrollView:
                 size_hint_y: None
-                height: dp(40)
-                spacing: dp(6)
+                height: dp(44)
+                do_scroll_y: False
+                bar_width: 0
+                MDBoxLayout:
+                    id: quick_chips_1
+                    orientation: 'horizontal'
+                    size_hint_x: None
+                    width: self.minimum_width
+                    height: dp(40)
+                    spacing: dp(8)
 
-            MDBoxLayout:
-                id: quick_chips_2
-                orientation: 'horizontal'
+            ScrollView:
                 size_hint_y: None
-                height: dp(40)
-                spacing: dp(6)
+                height: dp(44)
+                do_scroll_y: False
+                bar_width: 0
+                MDBoxLayout:
+                    id: quick_chips_2
+                    orientation: 'horizontal'
+                    size_hint_x: None
+                    width: self.minimum_width
+                    height: dp(40)
+                    spacing: dp(8)
 
             MDButton:
                 id: save_btn
@@ -1200,16 +1355,17 @@ class AddEditScreen(Screen):
         half = len(QUICK_SKILLS) // 2
 
         for i, sk in enumerate(QUICK_SKILLS):
+            chip_width = dp(len(sk) * 9 + 32)
             btn = MDButton(
                 style="outlined",
                 size_hint=(None, None),
-                size=(dp(max(len(sk) * 8 + 22, 64)), dp(34)),
+                size=(chip_width, dp(38)),
                 theme_bg_color="Custom",
                 md_bg_color=get_color_from_hex("#0a1a25"),
                 line_color=get_color_from_hex(C_ACCENT),
             )
             btn.add_widget(MDButtonText(
-                text=sk, font_size="11sp",
+                text=sk, font_size="12sp",
                 theme_text_color="Custom",
                 text_color=get_color_from_hex(C_ACCENT),
             ))
